@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,9 +27,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowForward
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,16 +42,12 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,10 +56,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.icerock.moko.mvvm.compose.getViewModel
 import dev.icerock.moko.mvvm.compose.viewModelFactory
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import org.vangel.modeling.theme.AppTheme
 
 @Composable
@@ -106,55 +105,17 @@ internal fun App() = AppTheme {
         Symbol("tg", SymbolType.FUNCTION)
     )
 
-    val tableApplyElements = arrayOf(
-        arrayOf(" ", "\$", "+", "-", "*", "/", "^", "(", ")", "F", "P"),
-        arrayOf("\$", "4", "1", "1", "1", "1", "1", "1", "5", "1", "6"),
-        arrayOf("+", "2", "2", "2", "1", "1", "1", "1", "2", "1", "6"),
-        arrayOf("-", "2", "2", "2", "1", "1", "1", "1", "2", "1", "6"),
-        arrayOf("*", "2", "2", "2", "2", "2", "1", "1", "2", "1", "6"),
-        arrayOf("/", "2", "2", "2", "2", "2", "1", "1", "2", "1", "6"),
-        arrayOf("^", "2", "2", "2", "2", "2", "2", "1", "2", "1", "6"),
-        arrayOf("(", "5", "1", "1", "1", "1", "1", "1", "3", "1", "6"),
-        arrayOf("F", "2", "2", "2", "2", "2", "2", "1", "2", "5", "6")
+    val tableApplyElements = listOf(
+        listOf(" ", "\$", "+", "-", "*", "/", "^", "(", ")", "F", "P"),
+        listOf("\$", "4", "1", "1", "1", "1", "1", "1", "5", "1", "6"),
+        listOf("+", "2", "2", "2", "1", "1", "1", "1", "2", "1", "6"),
+        listOf("-", "2", "2", "2", "1", "1", "1", "1", "2", "1", "6"),
+        listOf("*", "2", "2", "2", "2", "2", "1", "1", "2", "1", "6"),
+        listOf("/", "2", "2", "2", "2", "2", "1", "1", "2", "1", "6"),
+        listOf("^", "2", "2", "2", "2", "2", "2", "1", "2", "1", "6"),
+        listOf("(", "5", "1", "1", "1", "1", "1", "1", "3", "1", "6"),
+        listOf("F", "2", "2", "2", "2", "2", "2", "1", "2", "5", "6")
     )
-
-    val operationIndexes = uiState.operationIndexes
-
-    val shouldBeContinue = remember {
-        mutableStateOf(true)
-    }
-
-    val textState = remember {
-        mutableStateListOf<Symbol>()
-    }
-
-    var automaticMode by remember { mutableStateOf(true) }
-
-    val lastOperation = remember { mutableStateOf(false) }
-
-    val textStateCopy by remember { mutableStateOf(textState) }
-
-    var textStateCopyForTactInput = remember { mutableStateListOf<Symbol>() }
-
-    val isTactWorkStarted = remember {
-        mutableStateOf(false)
-    }
-
-    val textOutputIsClear = remember {
-        mutableStateOf(false)
-    }
-
-    val isInputChecked = remember { mutableStateOf(false) }
-
-    val canBeShownInfixForm = remember { mutableStateOf(false) }
-
-    val stack = remember {
-        mutableStateListOf<Symbol>()
-    }
-
-    var outputTextField by remember {
-        mutableStateOf("")
-    }
 
     Scaffold(
         snackbarHost = {
@@ -190,78 +151,48 @@ internal fun App() = AppTheme {
                         Text(
                             "Входная строка (в инфиксной форме)",
                             textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontSize = 18.sp
+                            ),
                             modifier = Modifier.onGloballyPositioned { coordinates ->
                                 text1Width = with(density) { coordinates.size.width.toDp() }
                             }
                         )
                         TextField(
-                            value = textState.joinToString("") { it.value },
+                            value = uiState.inputTextState.joinToString("") { it.value },
                             onValueChange = {},
                             modifier = Modifier.width(text1Width),
-                            label = { Text("Входная строка") }
+                            label = { Text("Входная строка") },
+                            readOnly = true
                         )
                         MasterFunctions(
                             modifier = Modifier.width(text1Width),
                             onSymbolClick = { symbol ->
-                                when (symbol.type) {
-                                    SymbolType.CLEAR -> {
-                                        textState.clear()
-                                    }
-
-                                    SymbolType.DELETE -> {
-                                        if (textState.isNotEmpty()) {
-                                            textState.removeLast()
-                                        }
-                                    }
-
-                                    else -> {
-                                        textState.add(symbol)
-                                    }
-                                }
+                                viewModel.onEvent(UiEvent.OnSymbolClick(symbol, scope, snackbarHostState))
                             },
                             symbolElements = symbolsInput,
-                            isTactWorkStarted = isTactWorkStarted,
-                            snackbarHostState = snackbarHostState,
-                            scope = scope
                         )
                     }
                 }
 
-                AnimatedVisibility(automaticMode) {
+                AnimatedVisibility(uiState.automaticMode) {
                     FilledTonalIconButton(onClick = {
-                        if (ExpressionModel.checkInput(
-                                textStateCopy.toMutableStateList(),
-                                snackbarHostState, scope
-                            )
-                        ) {
-                            outputTextField = ""
-                            lastOperation.value = false
-                            ExpressionModel.formatToPostfix(
-                                symbolsInput = textStateCopy.toMutableStateList(),
-                                onOutputChange = {
-                                    outputTextField += it
-                                },
-                                stack = stack,
-                                tableApplyElements = tableApplyElements,
-                                operationIndexes = operationIndexes,
-                                shouldBeContinue = shouldBeContinue,
-                                automaticMode = automaticMode,
-                                lastOperation = lastOperation,
-                                isTactWorkStarted = isTactWorkStarted,
-                                textOutputIsClear = textOutputIsClear,
-                                snackbarHostState = snackbarHostState,
-                                scope = scope,
-                                isInputChecked = isInputChecked,
-                                canBeShownInfixForm
+                        if (ExpressionModel.checkInput(viewModel.uiState.value.inputTextState, snackbarHostState, scope)) {
+                            viewModel.onEvent(
+                                UiEvent.FormatToPostfix(
+                                    tableApplyElements,
+                                    scope,
+                                    snackbarHostState,
+                                    Mods.AUTOMATIC_MODE
+                                )
                             )
                         }
-                    }, modifier = Modifier.padding(start = 94.dp, end = 94.dp, top = 32.dp)) {
+                    }, modifier = Modifier.padding(start = 60.dp, end = 60.dp, top = 32.dp)) {
                         Icon(imageVector = Icons.Outlined.ArrowForward, contentDescription = null)
                     }
                 }
 
-                AnimatedVisibility(!automaticMode) {
+                AnimatedVisibility(!uiState.automaticMode) {
                     Spacer(modifier = Modifier.padding(start = 12.dp, end = 12.dp))
                 }
 
@@ -274,48 +205,29 @@ internal fun App() = AppTheme {
                         Text(
                             "Выходная строка (в постфиксной форме)",
                             textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontSize = 18.sp
+                            ),
                             modifier = Modifier.onGloballyPositioned { coordinates ->
                                 text2Width = with(density) { coordinates.size.width.toDp() }
                             }
                         )
                         TextField(
-                            value = outputTextField,
-                            onValueChange = {
-
-                            },
-                            modifier = Modifier.width(text2Width)
+                            value = uiState.outputTextField,
+                            onValueChange = {},
+                            modifier = Modifier.width(text2Width),
+                            readOnly = true
                         )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.clickable {
-                                canBeShownInfixForm.value = false
-                                if (!isTactWorkStarted.value) {
-                                    automaticMode = true
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Включен автоматический режим")
-                                    }
-                                } else {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Запущен ручной режим, включение автоматического невозможно до окончания преобразований")
-                                    }
-                                }
+                                viewModel.onEvent(UiEvent.ChangeMode(Mods.AUTOMATIC_MODE, scope, snackbarHostState))
                             }.width(text2Width)
                         ) {
                             RadioButton(
-                                selected = automaticMode,
+                                selected = uiState.automaticMode,
                                 onClick = {
-                                    canBeShownInfixForm.value = false
-                                    if (!isTactWorkStarted.value) {
-                                        automaticMode = true
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Включен автоматический режим")
-                                        }
-                                    } else {
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Запущен ручной режим, включение автоматического невозможно до окончания преобразований")
-                                        }
-                                    }
+                                    viewModel.onEvent(UiEvent.ChangeMode(Mods.AUTOMATIC_MODE, scope, snackbarHostState))
                                 }
                             )
                             Text(text = "Автоматический режим")
@@ -323,106 +235,63 @@ internal fun App() = AppTheme {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.clickable {
-                                canBeShownInfixForm.value = false
-                                automaticMode = false
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Включен ручной режим")
-                                }
+                                viewModel.onEvent(UiEvent.ChangeMode(Mods.TACT_MODE, scope, snackbarHostState))
                             }.width(text2Width)
                         ) {
                             RadioButton(
-                                selected = !automaticMode,
+                                selected = !uiState.automaticMode,
                                 onClick = {
-                                    canBeShownInfixForm.value = false
-                                    automaticMode = false
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Включен ручной режим")
-                                    }
+                                    viewModel.onEvent(UiEvent.ChangeMode(Mods.TACT_MODE, scope, snackbarHostState))
                                 }
                             )
                             Text(text = "Ручной режим")
                         }
-                        AnimatedVisibility(!automaticMode) {
+                        AnimatedVisibility(!uiState.automaticMode) {
                             Column {
                                 ElevatedButton(onClick = {
-                                    if (!isInputChecked.value) {
-                                        isInputChecked.value = ExpressionModel.checkInput(
-                                            value = textState,
-                                            snackbarHostState = snackbarHostState,
-                                            scope = scope
+                                    viewModel.onEvent(
+                                        UiEvent.FormatToPostfix(
+                                            tableApplyElements,
+                                            scope,
+                                            snackbarHostState,
+                                            Mods.TACT_MODE
                                         )
-                                        if (isInputChecked.value) {
-                                            textStateCopyForTactInput = textState.toMutableStateList()
-                                            ExpressionModel.formatToPostfix(
-                                                symbolsInput = textState,
-                                                onOutputChange = {
-                                                    outputTextField += it
-                                                },
-                                                stack = stack,
-                                                tableApplyElements = tableApplyElements,
-                                                operationIndexes = operationIndexes,
-                                                shouldBeContinue = shouldBeContinue,
-                                                automaticMode = automaticMode,
-                                                lastOperation = lastOperation,
-                                                isTactWorkStarted = isTactWorkStarted,
-                                                textOutputIsClear = textOutputIsClear,
-                                                snackbarHostState = snackbarHostState,
-                                                scope = scope,
-                                                isInputChecked = isInputChecked,
-                                                canBeShownInfixForm
-                                            )
-                                        }
-                                    } else {
-                                        if (!textOutputIsClear.value) {
-                                            outputTextField = ""
-                                            textOutputIsClear.value = true
-                                        }
-                                        isTactWorkStarted.value = true
-                                        shouldBeContinue.value = true
-                                        ExpressionModel.formatToPostfix(
-                                            symbolsInput = textState,
-                                            onOutputChange = {
-                                                outputTextField += it
-                                            },
-                                            stack = stack,
-                                            tableApplyElements = tableApplyElements,
-                                            operationIndexes = operationIndexes,
-                                            shouldBeContinue = shouldBeContinue,
-                                            automaticMode = automaticMode,
-                                            lastOperation = lastOperation,
-                                            isTactWorkStarted = isTactWorkStarted,
-                                            textOutputIsClear = textOutputIsClear,
-                                            snackbarHostState = snackbarHostState,
-                                            scope = scope,
-                                            isInputChecked = isInputChecked,
-                                            canBeShownInfixForm
-                                        )
-                                    }
+                                    )
                                 }, modifier = Modifier.width(text2Width)) {
                                     Text("Такт")
                                 }
-
-                                if (canBeShownInfixForm.value) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text("Исходная инфиксная строка")
-                                    Text(textStateCopyForTactInput.joinToString("") { it.value })
-                                }
                             }
                         }
-
                     }
                 }
+                Spacer(modifier = Modifier.width(60.dp))
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Spacer(modifier = Modifier.width(85.dp))
                 ElevatedCard {
-                    StackOutput(stack)
+                    StackOutput(uiState.stack)
                 }
                 ElevatedCard {
-                    TableApply(tableApplyElements, operationIndexes)
+                    TableApply(tableApplyElements, uiState.operationIndexes)
+                }
+                ElevatedCard(
+
+                ) {
+                    FilledTonalButton(onClick = {
+
+                    }, modifier = Modifier.width(300.dp).padding(12.dp)) {
+                        Text("Преобразование выражений по их постфиксной форме", textAlign = TextAlign.Center)
+                    }
+                    FilledTonalButton(onClick = {
+
+                    }, modifier = Modifier.width(300.dp).padding(12.dp)) {
+                        Text("Вычисление выражений по их постфиксной форме", textAlign = TextAlign.Center)
+                    }
                 }
             }
         }
@@ -431,7 +300,7 @@ internal fun App() = AppTheme {
 
 @Composable
 fun StackOutput(
-    stack: SnapshotStateList<Symbol>
+    stack: List<Symbol>
 ) {
     Column(
         modifier = Modifier
@@ -466,9 +335,6 @@ fun MasterFunctions(
     modifier: Modifier = Modifier,
     onSymbolClick: (Symbol) -> Unit,
     symbolElements: List<Symbol>,
-    isTactWorkStarted: MutableState<Boolean>,
-    snackbarHostState: SnackbarHostState,
-    scope: CoroutineScope
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(5),
@@ -480,13 +346,7 @@ fun MasterFunctions(
             Box(
                 modifier = Modifier
                     .border(0.5.dp, Color.Black, RoundedCornerShape(12.dp)).clickable {
-                        if (!isTactWorkStarted.value) {
-                            onSymbolClick(symbol)
-                        } else {
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Ввод символов невозможен до окончания преобразования")
-                            }
-                        }
+                        onSymbolClick(symbol)
                     },
                 contentAlignment = Alignment.Center,
             ) {
@@ -501,11 +361,10 @@ fun MasterFunctions(
 }
 
 
-
 @Composable
 fun TableApply(
-    tableApplyElements: Array<Array<String>> = arrayOf(),
-    operationIndexes: MutableState<Pair<Int, Int>>
+    tableApplyElements: List<List<String>> = listOf(),
+    operationIndexes: Pair<Int, Int>
 ) {
     Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         LazyVerticalGrid(
@@ -535,8 +394,7 @@ fun TableApply(
             tableApplyElements.forEachIndexed { rowIndex, row ->
                 row.forEachIndexed { colIndex, item ->
                     item {
-                        val isSelected =
-                            operationIndexes.value.first == rowIndex && operationIndexes.value.second == colIndex
+                        val isSelected = operationIndexes.first == rowIndex && operationIndexes.second == colIndex
                         Box(
                             modifier = Modifier
                                 .border(

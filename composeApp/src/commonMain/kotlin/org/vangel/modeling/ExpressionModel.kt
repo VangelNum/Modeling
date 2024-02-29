@@ -9,7 +9,7 @@ import kotlinx.coroutines.launch
 
 object ExpressionModel {
     fun checkInput(
-        value: SnapshotStateList<Symbol>,
+        value: MutableList<Symbol>,
         snackbarHostState: SnackbarHostState,
         scope: CoroutineScope
     ): Boolean {
@@ -96,92 +96,5 @@ object ExpressionModel {
         }
 
         return isValid
-    }
-
-
-    fun formatToPostfix(
-        symbolsInput: SnapshotStateList<Symbol>,
-        onOutputChange: (String) -> Unit,
-        stack: SnapshotStateList<Symbol>,
-        tableApplyElements: Array<Array<String>>,
-        operationIndexes: MutableState<Pair<Int, Int>>,
-        shouldBeContinue: MutableState<Boolean>,
-        automaticMode: Boolean,
-        lastOperation: MutableState<Boolean>,
-        isTactWorkStarted: MutableState<Boolean>,
-        textOutputIsClear: MutableState<Boolean>,
-        snackbarHostState: SnackbarHostState,
-        scope: CoroutineScope,
-        isInputChecked: MutableState<Boolean>,
-        canBeShownInfixForm: MutableState<Boolean>
-    ) {
-        val firstRow = tableApplyElements.first()
-        val firstColumn = Array(tableApplyElements.size) {
-            tableApplyElements[it][0]
-        }
-
-        while (
-            (automaticMode && (symbolsInput.isNotEmpty() || stack.isNotEmpty() || !lastOperation.value)) ||
-            (!automaticMode && shouldBeContinue.value)
-        ) {
-            val symbol = symbolsInput.firstOrNull() ?: Symbol("$", SymbolType.EMPTY)
-            val stackOperationIndex = stack.firstOrNull() ?: Symbol("$", SymbolType.EMPTY)
-            val indexInRow = when (symbol.type) {
-                SymbolType.VARIABLE -> firstRow.indexOf("P")
-                SymbolType.FUNCTION -> firstRow.indexOf("F")
-                else -> {
-                    firstRow.indexOf(symbol.value)
-                }
-            }
-            val indexInColumn = when (stackOperationIndex.type) {
-                SymbolType.FUNCTION -> firstColumn.indexOf("F")
-                else -> firstColumn.indexOf(stackOperationIndex.value)
-            }
-            operationIndexes.value = Pair(indexInColumn, indexInRow)
-            when (tableApplyElements[indexInColumn][indexInRow]) {
-                "1" -> {
-                    stack.add(0, symbol)
-                    symbolsInput.removeFirst()
-                }
-
-                "2" -> {
-                    onOutputChange(stack.removeFirst().value)
-                }
-
-                "3" -> {
-                    symbolsInput.removeFirst()
-                    stack.removeFirst()
-                }
-
-                "4" -> {
-                    lastOperation.value = true
-                    isTactWorkStarted.value = false
-                    textOutputIsClear.value = false
-                    isInputChecked.value = false
-                    canBeShownInfixForm.value = true
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Преобразование успешно завершено")
-                    }
-                }
-
-                "5" -> {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Произошла ошибка")
-                    }
-                    lastOperation.value = true
-                    isTactWorkStarted.value = false
-                    textOutputIsClear.value = false
-                    isInputChecked.value = false
-                    break
-                    // throw Error("Error")
-                }
-
-                "6" -> {
-                    symbolsInput.removeFirst()
-                    onOutputChange(symbol.value)
-                }
-            }
-            shouldBeContinue.value = false
-        }
     }
 }
