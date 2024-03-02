@@ -1,4 +1,4 @@
-package org.vangel.modeling
+package org.vangel.modeling.to_postfix
 
 import dev.icerock.moko.mvvm.viewmodel.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -6,15 +6,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.vangel.modeling.core.Mods
+import org.vangel.modeling.core.Screens
+import org.vangel.modeling.core.Symbol
+import org.vangel.modeling.core.SymbolType
 
-class AppViewModel : ViewModel() {
-    private val _uiState = MutableStateFlow(UiState())
-    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+class ToPostfixViewModel : ViewModel() {
+    private val _uiToPostfixState = MutableStateFlow(UiStateToPostfix())
+    val uiToPostfixState: StateFlow<UiStateToPostfix> = _uiToPostfixState.asStateFlow()
 
-    fun onEvent(event: UiEvent) {
+    fun onEvent(event: UiEventToPostfix) {
         when (event) {
-            is UiEvent.OnSymbolClick -> {
-                _uiState.update { currentState ->
+            is UiEventToPostfix.OnSymbolClick -> {
+                _uiToPostfixState.update { currentState ->
                     when (event.symbol.type) {
                         SymbolType.CLEAR -> currentState.copy(
                             inputTextState = mutableListOf()
@@ -25,7 +29,7 @@ class AppViewModel : ViewModel() {
                         )
 
                         else -> {
-                            if (_uiState.value.isTactWorkStarted) {
+                            if (_uiToPostfixState.value.isTactWorkStarted) {
                                 event.scope.launch {
                                     event.snackbarHostState.showSnackbar(
                                         message = "Изменить выражение нельзя до окончания тактового режима",
@@ -43,7 +47,7 @@ class AppViewModel : ViewModel() {
                 }
             }
 
-            is UiEvent.FormatToPostfix -> {
+            is UiEventToPostfix.FormatToPostfix -> {
                 when (event.mode) {
                     Mods.AUTOMATIC_MODE -> {
                         handleAutomaticMode(event)
@@ -55,17 +59,17 @@ class AppViewModel : ViewModel() {
                 }
             }
 
-            is UiEvent.ChangeMode -> {
+            is UiEventToPostfix.ChangeMode -> {
                 when (event.mode) {
                     Mods.AUTOMATIC_MODE -> {
-                        if (_uiState.value.isTactWorkStarted) {
+                        if (_uiToPostfixState.value.isTactWorkStarted) {
                             event.scope.launch {
                                 event.snackbarHostState.showSnackbar(
                                     message = "Переключение на автоматический режим невозможно до окончания тактового режима",
                                 )
                             }
                         } else {
-                            _uiState.update { currentState ->
+                            _uiToPostfixState.update { currentState ->
                                 currentState.copy(
                                     automaticMode = true
                                 )
@@ -74,9 +78,26 @@ class AppViewModel : ViewModel() {
                     }
 
                     Mods.TACT_MODE -> {
-                        _uiState.update { currentState ->
+                        _uiToPostfixState.update { currentState ->
                             currentState.copy(
                                 automaticMode = false
+                            )
+                        }
+                    }
+                }
+            }
+
+            is UiEventToPostfix.SwitchScreen -> {
+                _uiToPostfixState.update { currentState->
+                    when (event.screens) {
+                        Screens.FROM_POSTFIX_SCREEN -> {
+                            currentState.copy(
+                                currentScreen = Screens.FROM_POSTFIX_SCREEN
+                            )
+                        }
+                        Screens.TO_POSTFIX_SCREEN -> {
+                            currentState.copy(
+                                currentScreen = Screens.TO_POSTFIX_SCREEN
                             )
                         }
                     }
@@ -85,13 +106,13 @@ class AppViewModel : ViewModel() {
         }
     }
 
-    private fun handleTactMode(event: UiEvent.FormatToPostfix) {
+    private fun handleTactMode(event: UiEventToPostfix.FormatToPostfix) {
 
-        if (!_uiState.value.inputStringChecked) {
-            _uiState.update { currentState ->
+        if (!_uiToPostfixState.value.inputStringChecked) {
+            _uiToPostfixState.update { currentState ->
                 currentState.copy(
-                    inputStringChecked = ExpressionModel.checkInput(
-                        _uiState.value.inputTextState,
+                    inputStringChecked = ExpressionModelToPostfix.checkInput(
+                        _uiToPostfixState.value.inputTextState,
                         event.snackbarHostState,
                         event.scope
                     )
@@ -99,7 +120,7 @@ class AppViewModel : ViewModel() {
             }
         }
 
-        if (!_uiState.value.inputStringChecked) {
+        if (!_uiToPostfixState.value.inputStringChecked) {
             return
         }
 
@@ -108,24 +129,24 @@ class AppViewModel : ViewModel() {
             event.tableApplyElements[it][0]
         }
 
-        if (_uiState.value.lastOperation) {
-            _uiState.update { currentState ->
+        if (_uiToPostfixState.value.lastOperation) {
+            _uiToPostfixState.update { currentState ->
                 currentState.copy(
-                    outputTextField = ""
+                    outputTextField = mutableListOf()
                 )
             }
         }
 
-        _uiState.update { currentState ->
+        _uiToPostfixState.update { currentState ->
             currentState.copy(
                 lastOperation = false,
                 isTactWorkStarted = true
             )
         }
 
-        if ((!_uiState.value.automaticMode && (_uiState.value.inputTextState.isNotEmpty() || _uiState.value.stack.isNotEmpty()) || !_uiState.value.lastOperation) && _uiState.value.inputStringChecked) {
-            val symbol = _uiState.value.inputTextState.firstOrNull() ?: Symbol("$", SymbolType.EMPTY)
-            val stackOperationIndex = _uiState.value.stack.firstOrNull() ?: Symbol("$", SymbolType.EMPTY)
+        if ((!_uiToPostfixState.value.automaticMode && (_uiToPostfixState.value.inputTextState.isNotEmpty() || _uiToPostfixState.value.stack.isNotEmpty()) || !_uiToPostfixState.value.lastOperation) && _uiToPostfixState.value.inputStringChecked) {
+            val symbol = _uiToPostfixState.value.inputTextState.firstOrNull() ?: Symbol("$", SymbolType.EMPTY)
+            val stackOperationIndex = _uiToPostfixState.value.stack.firstOrNull() ?: Symbol("$", SymbolType.EMPTY)
 
             val indexInRow = when (symbol.type) {
                 SymbolType.VARIABLE -> firstRow.indexOf("P")
@@ -140,7 +161,7 @@ class AppViewModel : ViewModel() {
                 else -> firstColumn.indexOf(stackOperationIndex.value)
             }
 
-            _uiState.update { currentState ->
+            _uiToPostfixState.update { currentState ->
                 currentState.copy(
                     operationIndexes = Pair(indexInColumn, indexInRow)
                 )
@@ -148,25 +169,21 @@ class AppViewModel : ViewModel() {
 
             when (event.tableApplyElements[indexInColumn][indexInRow]) {
                 "1" -> {
-                    _uiState.value.stack.add(0, symbol)
-                    _uiState.value.inputTextState.removeFirst()
+                    _uiToPostfixState.value.stack.add(0, symbol)
+                    _uiToPostfixState.value.inputTextState.removeFirst()
                 }
 
                 "2" -> {
-                    _uiState.update { currentState ->
-                        currentState.copy(
-                            outputTextField = currentState.outputTextField + _uiState.value.stack.removeFirst().value
-                        )
-                    }
+                    _uiToPostfixState.value.outputTextField.add(_uiToPostfixState.value.stack.removeFirst())
                 }
 
                 "3" -> {
-                    _uiState.value.inputTextState.removeFirst()
-                    _uiState.value.stack.removeFirst()
+                    _uiToPostfixState.value.inputTextState.removeFirst()
+                    _uiToPostfixState.value.stack.removeFirst()
                 }
 
                 "4" -> {
-                    _uiState.update { currentState ->
+                    _uiToPostfixState.update { currentState ->
                         currentState.copy(
                             lastOperation = true,
                             isTactWorkStarted = false,
@@ -180,7 +197,7 @@ class AppViewModel : ViewModel() {
                 }
 
                 "5" -> {
-                    _uiState.update { currentState ->
+                    _uiToPostfixState.update { currentState ->
                         currentState.copy(
                             lastOperation = true,
                             isTactWorkStarted = false,
@@ -193,37 +210,33 @@ class AppViewModel : ViewModel() {
                 }
 
                 "6" -> {
-                    _uiState.value.inputTextState.removeFirst()
-                    _uiState.update { currentState ->
-                        currentState.copy(
-                            outputTextField = currentState.outputTextField + symbol.value
-                        )
-                    }
+                    _uiToPostfixState.value.inputTextState.removeFirst()
+                    _uiToPostfixState.value.outputTextField.add(symbol)
                 }
             }
         }
     }
 
-    private fun handleAutomaticMode(event: UiEvent.FormatToPostfix) {
+    private fun handleAutomaticMode(event: UiEventToPostfix.FormatToPostfix) {
 
-        val inputTextCopy = _uiState.value.inputTextState.toMutableList()
+        val inputTextCopy = _uiToPostfixState.value.inputTextState.toMutableList()
 
         val firstRow = event.tableApplyElements.first()
         val firstColumn = Array(event.tableApplyElements.size) {
             event.tableApplyElements[it][0]
         }
-        _uiState.update { currentState ->
+        _uiToPostfixState.update { currentState ->
             currentState.copy(
                 lastOperation = false,
-                outputTextField = ""
+                outputTextField = mutableListOf()
             )
         }
         while (
-            (_uiState.value.automaticMode && (inputTextCopy.isNotEmpty() || _uiState.value.stack.isNotEmpty()) || !_uiState.value.lastOperation)
+            (_uiToPostfixState.value.automaticMode && (inputTextCopy.isNotEmpty() || _uiToPostfixState.value.stack.isNotEmpty()) || !_uiToPostfixState.value.lastOperation)
         ) {
             val symbol = inputTextCopy.firstOrNull() ?: Symbol("$", SymbolType.EMPTY)
             val stackOperationIndex =
-                _uiState.value.stack.firstOrNull() ?: Symbol("$", SymbolType.EMPTY)
+                _uiToPostfixState.value.stack.firstOrNull() ?: Symbol("$", SymbolType.EMPTY)
 
             val indexInRow = when (symbol.type) {
                 SymbolType.VARIABLE -> firstRow.indexOf("P")
@@ -238,7 +251,7 @@ class AppViewModel : ViewModel() {
                 else -> firstColumn.indexOf(stackOperationIndex.value)
             }
 
-            _uiState.update { currentState ->
+            _uiToPostfixState.update { currentState ->
                 currentState.copy(
                     operationIndexes = Pair(indexInColumn, indexInRow)
                 )
@@ -246,25 +259,21 @@ class AppViewModel : ViewModel() {
 
             when (event.tableApplyElements[indexInColumn][indexInRow]) {
                 "1" -> {
-                    _uiState.value.stack.add(0, symbol)
+                    _uiToPostfixState.value.stack.add(0, symbol)
                     inputTextCopy.removeFirst()
                 }
 
                 "2" -> {
-                    _uiState.update { currentState ->
-                        currentState.copy(
-                            outputTextField = currentState.outputTextField + _uiState.value.stack.removeFirst().value
-                        )
-                    }
+                    _uiToPostfixState.value.outputTextField.add(_uiToPostfixState.value.stack.removeFirst())
                 }
 
                 "3" -> {
                     inputTextCopy.removeFirst()
-                    _uiState.value.stack.removeFirst()
+                    _uiToPostfixState.value.stack.removeFirst()
                 }
 
                 "4" -> {
-                    _uiState.update { currentState ->
+                    _uiToPostfixState.update { currentState ->
                         currentState.copy(
                             lastOperation = true
                         )
@@ -276,7 +285,7 @@ class AppViewModel : ViewModel() {
                 }
 
                 "5" -> {
-                    _uiState.update { currentState ->
+                    _uiToPostfixState.update { currentState ->
                         currentState.copy(
                             lastOperation = true
                         )
@@ -289,11 +298,7 @@ class AppViewModel : ViewModel() {
 
                 "6" -> {
                     inputTextCopy.removeFirst()
-                    _uiState.update { currentState ->
-                        currentState.copy(
-                            outputTextField = currentState.outputTextField + symbol.value
-                        )
-                    }
+                    _uiToPostfixState.value.outputTextField.add(symbol)
                 }
             }
         }

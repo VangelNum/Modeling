@@ -1,4 +1,4 @@
-package org.vangel.modeling
+package org.vangel.modeling.core
 
 enum class Mods{
     AUTOMATIC_MODE,

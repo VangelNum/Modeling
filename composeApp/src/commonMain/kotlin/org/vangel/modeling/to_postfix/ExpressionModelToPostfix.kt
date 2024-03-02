@@ -1,13 +1,13 @@
-package org.vangel.modeling
+package org.vangel.modeling.to_postfix
 
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.vangel.modeling.core.Symbol
+import org.vangel.modeling.core.SymbolType
 
 
-object ExpressionModel {
+object ExpressionModelToPostfix {
     fun checkInput(
         value: MutableList<Symbol>,
         snackbarHostState: SnackbarHostState,

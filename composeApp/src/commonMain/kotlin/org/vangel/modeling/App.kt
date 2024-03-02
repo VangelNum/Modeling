@@ -1,13 +1,15 @@
 package org.vangel.modeling
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -59,241 +61,326 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.mvvm.compose.getViewModel
 import dev.icerock.moko.mvvm.compose.viewModelFactory
-import kotlinx.coroutines.CoroutineScope
+import org.vangel.modeling.core.Mods
+import org.vangel.modeling.core.Screens
+import org.vangel.modeling.core.Symbol
+import org.vangel.modeling.core.SymbolType
+import org.vangel.modeling.from_postfix.FromPostfixScreen
 import org.vangel.modeling.theme.AppTheme
+import org.vangel.modeling.to_postfix.ExpressionModelToPostfix
+import org.vangel.modeling.to_postfix.ToPostfixViewModel
+import org.vangel.modeling.to_postfix.UiEventToPostfix
+import org.vangel.modeling.to_postfix.UiStateToPostfix
 
 @Composable
 internal fun App() = AppTheme {
-    val viewModel: AppViewModel = getViewModel(Unit, viewModelFactory { AppViewModel() })
-    val uiState by viewModel.uiState.collectAsState()
+    val viewModel: ToPostfixViewModel = getViewModel(Unit, viewModelFactory { ToPostfixViewModel() })
+    val uiState by viewModel.uiToPostfixState.collectAsState()
 
-    var text1Width by remember { mutableStateOf(0.dp) }
+    AnimatedVisibility (
+        uiState.currentScreen == Screens.FROM_POSTFIX_SCREEN,
+        enter = slideInHorizontally(animationSpec = tween(2000), initialOffsetX = { it }),
+        exit = slideOutHorizontally(animationSpec = tween(2000), targetOffsetX = { it })
+    ) {
+        FromPostfixScreen(viewModel, uiState)
+    }
+    AnimatedVisibility(
+        uiState.currentScreen == Screens.TO_POSTFIX_SCREEN,
+        enter = slideInHorizontally(animationSpec = tween(2000), initialOffsetX = { -it }),
+        exit = slideOutHorizontally(animationSpec = tween(2000), targetOffsetX = { -it })
+    ) {
+        var text1Width by remember { mutableStateOf(0.dp) }
 
-    var text2Width by remember { mutableStateOf(0.dp) }
+        var text2Width by remember { mutableStateOf(0.dp) }
 
-    val density = LocalDensity.current
+        val density = LocalDensity.current
 
-    val scope = rememberCoroutineScope()
+        val scope = rememberCoroutineScope()
 
-    val snackbarHostState = remember { SnackbarHostState() }
+        val snackbarHostState = remember { SnackbarHostState() }
 
-    val symbolsInput = listOf(
-        Symbol("(", SymbolType.OPEN_PARENTHESES),
-        Symbol(")", SymbolType.CLOSE_PARENTHESES),
-        Symbol("C", SymbolType.CLEAR),
-        Symbol("DEL", SymbolType.DELETE),
-        Symbol("^", SymbolType.OPERATION),
-        Symbol("a", SymbolType.VARIABLE),
-        Symbol("b", SymbolType.VARIABLE),
-        Symbol("c", SymbolType.VARIABLE),
-        Symbol("/", SymbolType.OPERATION),
-        Symbol("abs", SymbolType.FUNCTION),
-        Symbol("d", SymbolType.VARIABLE),
-        Symbol("e", SymbolType.VARIABLE),
-        Symbol("f", SymbolType.VARIABLE),
-        Symbol("+", SymbolType.OPERATION),
-        Symbol("sin", SymbolType.FUNCTION),
-        Symbol("g", SymbolType.VARIABLE),
-        Symbol("h", SymbolType.VARIABLE),
-        Symbol("i", SymbolType.VARIABLE),
-        Symbol("-", SymbolType.OPERATION),
-        Symbol("cos", SymbolType.FUNCTION),
-        Symbol("", SymbolType.EMPTY),
-        Symbol("j", SymbolType.VARIABLE),
-        Symbol("", SymbolType.EMPTY),
-        Symbol("*", SymbolType.OPERATION),
-        Symbol("tg", SymbolType.FUNCTION)
-    )
+        val symbolsInput = listOf(
+            Symbol("(", SymbolType.OPEN_PARENTHESES),
+            Symbol(")", SymbolType.CLOSE_PARENTHESES),
+            Symbol("CLEAR", SymbolType.CLEAR),
+            Symbol("DEL", SymbolType.DELETE),
+            Symbol("^", SymbolType.OPERATION),
+            Symbol("A", SymbolType.VARIABLE),
+            Symbol("B", SymbolType.VARIABLE),
+            Symbol("C", SymbolType.VARIABLE),
+            Symbol("/", SymbolType.OPERATION),
+            Symbol("abs", SymbolType.FUNCTION),
+            Symbol("D", SymbolType.VARIABLE),
+            Symbol("E", SymbolType.VARIABLE),
+            Symbol("F", SymbolType.VARIABLE),
+            Symbol("+", SymbolType.OPERATION),
+            Symbol("sin", SymbolType.FUNCTION),
+            Symbol("G", SymbolType.VARIABLE),
+            Symbol("H", SymbolType.VARIABLE),
+            Symbol("I", SymbolType.VARIABLE),
+            Symbol("-", SymbolType.OPERATION),
+            Symbol("cos", SymbolType.FUNCTION),
+            Symbol("", SymbolType.EMPTY),
+            Symbol("J", SymbolType.VARIABLE),
+            Symbol("", SymbolType.EMPTY),
+            Symbol("*", SymbolType.OPERATION),
+            Symbol("ln", SymbolType.FUNCTION)
+        )
 
-    val tableApplyElements = listOf(
-        listOf(" ", "\$", "+", "-", "*", "/", "^", "(", ")", "F", "P"),
-        listOf("\$", "4", "1", "1", "1", "1", "1", "1", "5", "1", "6"),
-        listOf("+", "2", "2", "2", "1", "1", "1", "1", "2", "1", "6"),
-        listOf("-", "2", "2", "2", "1", "1", "1", "1", "2", "1", "6"),
-        listOf("*", "2", "2", "2", "2", "2", "1", "1", "2", "1", "6"),
-        listOf("/", "2", "2", "2", "2", "2", "1", "1", "2", "1", "6"),
-        listOf("^", "2", "2", "2", "2", "2", "2", "1", "2", "1", "6"),
-        listOf("(", "5", "1", "1", "1", "1", "1", "1", "3", "1", "6"),
-        listOf("F", "2", "2", "2", "2", "2", "2", "1", "2", "5", "6")
-    )
+        val tableApplyElements = listOf(
+            listOf(" ", "\$", "+", "-", "*", "/", "^", "(", ")", "F", "P"),
+            listOf("\$", "4", "1", "1", "1", "1", "1", "1", "5", "1", "6"),
+            listOf("+", "2", "2", "2", "1", "1", "1", "1", "2", "1", "6"),
+            listOf("-", "2", "2", "2", "1", "1", "1", "1", "2", "1", "6"),
+            listOf("*", "2", "2", "2", "2", "2", "1", "1", "2", "1", "6"),
+            listOf("/", "2", "2", "2", "2", "2", "1", "1", "2", "1", "6"),
+            listOf("^", "2", "2", "2", "2", "2", "2", "1", "2", "1", "6"),
+            listOf("(", "5", "1", "1", "1", "1", "1", "1", "3", "1", "6"),
+            listOf("F", "2", "2", "2", "2", "2", "2", "1", "2", "5", "6")
+        )
 
-    Scaffold(
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
-        },
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(start = 8.dp, end = 8.dp, top = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Преобразование выражений в постфиксной форме",
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth(),
+        Scaffold(
+            snackbarHost = {
+                SnackbarHost(hostState = snackbarHostState)
+            },
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(start = 8.dp, end = 8.dp, top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                ElevatedCard() {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(12.dp)
-                    ) {
-                        Text(
-                            "Входная строка (в инфиксной форме)",
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontSize = 18.sp
-                            ),
-                            modifier = Modifier.onGloballyPositioned { coordinates ->
-                                text1Width = with(density) { coordinates.size.width.toDp() }
-                            }
-                        )
-                        TextField(
-                            value = uiState.inputTextState.joinToString("") { it.value },
-                            onValueChange = {},
-                            modifier = Modifier.width(text1Width),
-                            label = { Text("Входная строка") },
-                            readOnly = true
-                        )
-                        MasterFunctions(
-                            modifier = Modifier.width(text1Width),
-                            onSymbolClick = { symbol ->
-                                viewModel.onEvent(UiEvent.OnSymbolClick(symbol, scope, snackbarHostState))
-                            },
-                            symbolElements = symbolsInput,
-                        )
-                    }
-                }
-
-                AnimatedVisibility(uiState.automaticMode) {
-                    FilledTonalIconButton(onClick = {
-                        if (ExpressionModel.checkInput(viewModel.uiState.value.inputTextState, snackbarHostState, scope)) {
-                            viewModel.onEvent(
-                                UiEvent.FormatToPostfix(
-                                    tableApplyElements,
-                                    scope,
-                                    snackbarHostState,
-                                    Mods.AUTOMATIC_MODE
-                                )
-                            )
-                        }
-                    }, modifier = Modifier.padding(start = 60.dp, end = 60.dp, top = 32.dp)) {
-                        Icon(imageVector = Icons.Outlined.ArrowForward, contentDescription = null)
-                    }
-                }
-
-                AnimatedVisibility(!uiState.automaticMode) {
-                    Spacer(modifier = Modifier.padding(start = 12.dp, end = 12.dp))
-                }
-
-                ElevatedCard() {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(12.dp)
-                    ) {
-                        Text(
-                            "Выходная строка (в постфиксной форме)",
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontSize = 18.sp
-                            ),
-                            modifier = Modifier.onGloballyPositioned { coordinates ->
-                                text2Width = with(density) { coordinates.size.width.toDp() }
-                            }
-                        )
-                        TextField(
-                            value = uiState.outputTextField,
-                            onValueChange = {},
-                            modifier = Modifier.width(text2Width),
-                            readOnly = true
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                viewModel.onEvent(UiEvent.ChangeMode(Mods.AUTOMATIC_MODE, scope, snackbarHostState))
-                            }.width(text2Width)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Преобразование выражений в постфиксной форме",
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    ElevatedCard() {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(12.dp)
                         ) {
-                            RadioButton(
-                                selected = uiState.automaticMode,
-                                onClick = {
-                                    viewModel.onEvent(UiEvent.ChangeMode(Mods.AUTOMATIC_MODE, scope, snackbarHostState))
+                            Text(
+                                "Входная строка (в инфиксной форме)",
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontSize = 18.sp
+                                ),
+                                modifier = Modifier.onGloballyPositioned { coordinates ->
+                                    text1Width = with(density) { coordinates.size.width.toDp() }
                                 }
                             )
-                            Text(text = "Автоматический режим")
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                viewModel.onEvent(UiEvent.ChangeMode(Mods.TACT_MODE, scope, snackbarHostState))
-                            }.width(text2Width)
-                        ) {
-                            RadioButton(
-                                selected = !uiState.automaticMode,
-                                onClick = {
-                                    viewModel.onEvent(UiEvent.ChangeMode(Mods.TACT_MODE, scope, snackbarHostState))
-                                }
+                            TextField(
+                                value = uiState.inputTextState.joinToString("") { it.value },
+                                onValueChange = {},
+                                modifier = Modifier.width(text1Width),
+                                label = { Text("Входная строка") },
+                                readOnly = true
                             )
-                            Text(text = "Ручной режим")
-                        }
-                        AnimatedVisibility(!uiState.automaticMode) {
-                            Column {
-                                ElevatedButton(onClick = {
+                            MasterFunctions(
+                                modifier = Modifier.width(text1Width),
+                                onSymbolClick = { symbol ->
                                     viewModel.onEvent(
-                                        UiEvent.FormatToPostfix(
-                                            tableApplyElements,
+                                        UiEventToPostfix.OnSymbolClick(
+                                            symbol,
                                             scope,
-                                            snackbarHostState,
-                                            Mods.TACT_MODE
+                                            snackbarHostState
                                         )
                                     )
-                                }, modifier = Modifier.width(text2Width)) {
-                                    Text("Такт")
+                                },
+                                symbolElements = symbolsInput,
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(uiState.automaticMode) {
+                        FilledTonalIconButton(onClick = {
+                            if (ExpressionModelToPostfix.checkInput(
+                                    viewModel.uiToPostfixState.value.inputTextState,
+                                    snackbarHostState,
+                                    scope
+                                )
+                            ) {
+                                viewModel.onEvent(
+                                    UiEventToPostfix.FormatToPostfix(
+                                        tableApplyElements,
+                                        scope,
+                                        snackbarHostState,
+                                        Mods.AUTOMATIC_MODE
+                                    )
+                                )
+                            }
+                        }, modifier = Modifier.padding(start = 60.dp, end = 60.dp, top = 32.dp)) {
+                            Icon(
+                                imageVector = Icons.Outlined.ArrowForward,
+                                contentDescription = null
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(!uiState.automaticMode) {
+                        Spacer(modifier = Modifier.padding(start = 12.dp, end = 12.dp))
+                    }
+
+                    ElevatedCard() {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Text(
+                                "Выходная строка (в постфиксной форме)",
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontSize = 18.sp
+                                ),
+                                modifier = Modifier.onGloballyPositioned { coordinates ->
+                                    text2Width = with(density) { coordinates.size.width.toDp() }
+                                }
+                            )
+                            TextField(
+                                value = uiState.outputTextField.joinToString("") { it.value },
+                                onValueChange = {},
+                                modifier = Modifier.width(text2Width),
+                                readOnly = true
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable {
+                                    viewModel.onEvent(
+                                        UiEventToPostfix.ChangeMode(
+                                            Mods.AUTOMATIC_MODE,
+                                            scope,
+                                            snackbarHostState
+                                        )
+                                    )
+                                }.width(text2Width)
+                            ) {
+                                RadioButton(
+                                    selected = uiState.automaticMode,
+                                    onClick = {
+                                        viewModel.onEvent(
+                                            UiEventToPostfix.ChangeMode(
+                                                Mods.AUTOMATIC_MODE,
+                                                scope,
+                                                snackbarHostState
+                                            )
+                                        )
+                                    }
+                                )
+                                Text(text = "Автоматический режим")
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable {
+                                    viewModel.onEvent(
+                                        UiEventToPostfix.ChangeMode(
+                                            Mods.TACT_MODE,
+                                            scope,
+                                            snackbarHostState
+                                        )
+                                    )
+                                }.width(text2Width)
+                            ) {
+                                RadioButton(
+                                    selected = !uiState.automaticMode,
+                                    onClick = {
+                                        viewModel.onEvent(
+                                            UiEventToPostfix.ChangeMode(
+                                                Mods.TACT_MODE,
+                                                scope,
+                                                snackbarHostState
+                                            )
+                                        )
+                                    }
+                                )
+                                Text(text = "Ручной режим")
+                            }
+                            AnimatedVisibility(!uiState.automaticMode) {
+                                Column {
+                                    ElevatedButton(onClick = {
+                                        viewModel.onEvent(
+                                            UiEventToPostfix.FormatToPostfix(
+                                                tableApplyElements,
+                                                scope,
+                                                snackbarHostState,
+                                                Mods.TACT_MODE
+                                            )
+                                        )
+                                    }, modifier = Modifier.width(text2Width)) {
+                                        Text("Такт")
+                                    }
                                 }
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.width(60.dp))
                 }
-                Spacer(modifier = Modifier.width(60.dp))
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Spacer(modifier = Modifier.width(85.dp))
-                ElevatedCard {
-                    StackOutput(uiState.stack)
-                }
-                ElevatedCard {
-                    TableApply(tableApplyElements, uiState.operationIndexes)
-                }
-                ElevatedCard(
-
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    FilledTonalButton(onClick = {
-
-                    }, modifier = Modifier.width(300.dp).padding(12.dp)) {
-                        Text("Преобразование выражений по их постфиксной форме", textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.width(85.dp))
+                    ElevatedCard {
+                        StackOutput(uiState.stack)
                     }
-                    FilledTonalButton(onClick = {
-
-                    }, modifier = Modifier.width(300.dp).padding(12.dp)) {
-                        Text("Вычисление выражений по их постфиксной форме", textAlign = TextAlign.Center)
+                    ElevatedCard {
+                        TableApply(tableApplyElements, uiState.operationIndexes)
                     }
+                    ChangeCurrentScreen(
+                        viewModel, uiState
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ChangeCurrentScreen(
+    viewModel: ToPostfixViewModel,
+    uiState: UiStateToPostfix
+) {
+    ElevatedCard {
+        FilledTonalButton(
+            onClick = {
+                viewModel.onEvent(UiEventToPostfix.SwitchScreen(Screens.TO_POSTFIX_SCREEN))
+            },
+            modifier = Modifier.width(300.dp).padding(12.dp),
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = if (uiState.currentScreen == Screens.TO_POSTFIX_SCREEN) Color.Green else MaterialTheme.colorScheme.secondaryContainer,
+            )
+        ) {
+            Text(
+                "Преобразование выражений к постфиксной форме",
+                textAlign = TextAlign.Center
+            )
+        }
+        FilledTonalButton(
+            onClick = {
+                viewModel.onEvent(UiEventToPostfix.SwitchScreen(Screens.FROM_POSTFIX_SCREEN))
+            },
+            modifier = Modifier.width(300.dp).padding(12.dp),
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = if (uiState.currentScreen == Screens.FROM_POSTFIX_SCREEN) Color.Green else MaterialTheme.colorScheme.secondaryContainer,
+            )
+        ) {
+            Text(
+                "Вычисление выражений по их постфиксной форме",
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
